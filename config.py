@@ -6,4 +6,4 @@ reaction_type = {
     "=>": "irev"
 }
 
-test_rule = "pbc{n}::pbs::cyt + 5 ps2(chl{*}|p680{n}).phe(chl{n})::tlm => NADHP::cell"
+test_rule = "pbc{n}::pbs::cyt + 5 ps2(chl{*}|p680{n}).phe(chl{n})::tlm => NADHP{n}::pbs::cell + phe::cyt + ps2(chl{p}|p680{*})::tlm"
