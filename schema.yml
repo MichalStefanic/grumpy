@@ -1,0 +1,47 @@
+swagger: "2.0"
+info:
+  title: Grumpy API
+  description: An API for automatically generation of SBGN images for BCSL rules and SBML reactions.
+  version: "1.0.0"
+basePath: /api
+schemes:
+  - https
+consumes:
+  - application/json
+produces:
+  - application/json
+
+paths:
+  /rules:
+    post:
+      operationId: "handlers.get_rule"
+      summary: Get the rule image
+      produces:
+        - application/json
+      parameters:
+      - name: rule
+        in: body
+        required: true
+        schema:
+          type: string
+          example: ps2(chl{*}|p680{n}|pheo{n})::tlm <=> ps2(chl{n}|p680{+}|pheo{-})::tlm
+      responses:
+        '200':
+          description: SVG image of rule in SBGN.
+
+  /reactions:
+    post:
+      operationId: "handlers.get_reaction"
+      summary: Get the reaction image
+      produces:
+        - application/xml
+      parameters:
+      - name: reaction
+        in: body
+        required: true
+        schema:
+          type: string
+          example: ps2(chl{*}|p680{n}|pheo{n})::tlm <=> ps2(chl{n}|p680{+}|pheo{-})::tlm
+      responses:
+        '200':
+          description: SVG image of reaction in SBGN.

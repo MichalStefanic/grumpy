@@ -1,0 +1,8 @@
+[submodule "pypotrace"]
+	path = pypotrace
+	url = https://github.com/flupke/pypotrace.git
+	ignore = dirty
+[submodule "BCSLruleParser"]
+	path = BCSLruleParser
+	url = https://github.com/sybila/BCSLruleParser.git
+	ignore = dirty
