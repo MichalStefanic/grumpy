@@ -1,32 +1,40 @@
+"""Rule manager."""
 import requests
 from libsbgnpy.libsbgnTypes import GlyphClass
 
-from config import entity_url
-from main.coordinates_calculator import CoordinatesCalculator
-from main.sbgn_manager import SbgnGenerator
+from helpers import get_entity_api_response
+from managers.coordinates_calculator import CoordinatesCalculator
+from managers.sbgn_manager import SbgnManager
 
 
-class SBGNRuleMaker:
+class RuleManager:
 
     def __init__(self):
         self.sbgn = None
         self.entity_num = 1
-        self.compartment = None
+        self.compartments = {}
+        self.current_compartment = None
         self.stoichiometry = None
 
     def create_sbgn_from_rule(self, processed_equation: CoordinatesCalculator):
         """Create SBGN representation of processed rule.
 
-        :param processed_equation: processed rule with all coordinates set
-        :return: final sbgn with all entities
+        :param processed_equation: processed rule with all coordinates
+        :return: final SBGN with all entities
         """
 
-        self.sbgn = SbgnGenerator(
+        self.sbgn = SbgnManager(
             width=processed_equation.x_limit,
             height=processed_equation.y_limit,
             pg_x=processed_equation.process_glyph_x,
             pg_y=processed_equation.process_glyph_y,
         )
+
+        # build all compartments
+        for compartment, coordinates in processed_equation.compartments.items():
+            x, y, w, h = self.get_coordinates(coordinates["coordinates"])
+            self.compartments[compartment] = self.build_compartment_glyph(compartment, x, y, w, h)
+
         # generate left side of equation
         self.generate_one_side(processed_equation.left_side)
         # generate right side of equation
@@ -39,37 +47,43 @@ class SBGNRuleMaker:
 
         :param entity: one side of equation which should be process
         :param side: determine side of equation
-        :return:
+        :return: sbgn
         """
         for entity in entity.get("children"):
-            # TODO: add stoichiometry functionality
             self.stoichiometry = entity.get("token")
             entity = entity.get("children")[0]
 
             num_of_children = len(entity.get("children"))
 
-            # last child always compartment
+            # last child is always compartment
             compartment = entity.get("children")[num_of_children - 1]
-            self.compartment = self.build_compartment_glyph(compartment)
+            self.current_compartment = self.compartments[self.get_label_name(compartment)]
 
-            complex_glyph = None
-            if num_of_children == 3:
-                # in case of 3 child, second is always complex
-                complex = entity.get("children")[1]
-                complex_glyph = self.build_complex_glyph(complex, label=True)
+            # glyph where arc start or end
+            primary_glyph = self.handle_nested_complexes(entity, num_of_children - 2)
 
-            # glyph from which arc will start or end
-            primary_glyph = self.build_nested_entities(entity.get("children")[0])
-
-            if complex_glyph:
-                complex_glyph.add_glyph(primary_glyph)
-                primary_glyph = complex_glyph
-
-            self.sbgn.add_arc_glyph(glyph=primary_glyph, side=side)
+            self.sbgn.add_arc_glyph(glyph=primary_glyph, side=side, stoichiometry=self.stoichiometry)
 
         return self.sbgn
 
-    def build_nested_entities(self, entity):
+    def handle_nested_complexes(self, entity, index):
+        """Method that is solving nested  complexes.
+
+        :param entity: reactant or product
+        :param index: index in array of children from parser
+        :return:
+        """
+        if index == 0:
+            return self.check_and_build_entities(entity.get("children")[0])
+        else:
+            complex = entity.get("children")[index]
+            complex_glyph = self.build_complex_glyph(complex, label=True)
+            nested_glyph = self.handle_nested_complexes(entity, index - 1)
+            complex_glyph.add_glyph(nested_glyph)
+
+            return complex_glyph
+
+    def check_and_build_entities(self, entity):
         """Process and handle creation of nested entities.
         Can contain complex, structured, atomic and state entities.
 
@@ -89,7 +103,7 @@ class SBGNRuleMaker:
         return complex_agent if complex_agent else glyph
 
     def build_structured_agent(self, structure):
-        """Process and build a structured agend.
+        """Process and build a structured agent.
         It can be just atomic agent or structured agent with some atomic agent inside.
 
         :param structure: structure dict from processed rule
@@ -113,8 +127,8 @@ class SBGNRuleMaker:
                 width=w,
                 height=h,
                 label=label,
-                compartment=self.compartment,
-                l_coords={"x": x + 4, "y": y + 4, "width": 40, "height": 15}
+                compartment=self.current_compartment,
+                label_coords={"x": x + 4, "y": y + 4, "width": 40, "height": 15}
             )
             self.entity_num += 1
             for atomic in structure.get("children"):
@@ -142,7 +156,7 @@ class SBGNRuleMaker:
             y=y,
             width=w,
             height=h,
-            compartment=self.compartment,
+            compartment=self.current_compartment,
         )
         if len(atomic.get("children")) != 0:
             state_glyph = self.add_state_glyph(atomic)
@@ -162,11 +176,11 @@ class SBGNRuleMaker:
         state_glyph = self.sbgn.add_glyph(
             glyph_class=GlyphClass.STATE_VARIABLE,
             gid=label + "_atomic{}".format(str(self.entity_num)),
-            label=label,
             x=x,
             y=y,
             width=w,
             height=h,
+            label=label,
         )
         self.entity_num += 1
         return state_glyph
@@ -182,10 +196,10 @@ class SBGNRuleMaker:
         if label:
             label = self.get_label_name(complex)
             gid = label + "_complex{}".format(str(self.entity_num)),
-            l_coords = {"x": x + 4, "y": y + 4, "width": 40, "height": 15}
+            label_coords = {"x": x + 4, "y": y + 4, "width": 40, "height": 15}
         else:
             gid = "nameless_complex{}".format(str(self.entity_num)),
-            l_coords = None
+            label_coords = None
         complex_glyph = self.sbgn.add_glyph(
             glyph_class=GlyphClass.COMPLEX,
             gid=gid,
@@ -193,21 +207,19 @@ class SBGNRuleMaker:
             y=y,
             width=w,
             height=h,
-            compartment=self.compartment,
+            compartment=self.current_compartment,
             label=label,
-            l_coords=l_coords
+            label_coords=label_coords
         )
         self.entity_num += 1
         return complex_glyph
 
-    def build_compartment_glyph(self, compartment):
+    def build_compartment_glyph(self, label, x, y, w, h):
         """Create and add compartment glyph to SBGN and return.
 
-        :param compartment: compartment dict from processed rule
+        :param label: compartment dict from processed rule
         :return: compartment glyph
         """
-        x, y, w, h = self.get_coordinates(compartment["coordinates"])
-        label = self.get_label_name(compartment)
         compartment_glyph = self.sbgn.add_glyph(
             glyph_class=GlyphClass.COMPARTMENT,
             gid=label + "_compartment{}".format(str(self.entity_num)),
@@ -216,7 +228,7 @@ class SBGNRuleMaker:
             y=y,
             width=w,
             height=h,
-            l_coords={"x": x + 4, "y": y + 4, "width": 40, "height": 15}
+            label_coords={"x": x + 4, "y": y + 4, "width": 40, "height": 15}
         )
         self.entity_num += 1
         return compartment_glyph
@@ -261,19 +273,3 @@ class SBGNRuleMaker:
 
         except requests.RequestException:
             return "atomic"
-
-
-def get_entity_api_response(label):
-    """Call e-cyano entity API and check entity type.
-
-    :param label: name of entity
-    :return: dict with entity data or error
-    """
-    session = requests.Session()
-    url = entity_url + "/{}".format(label)
-    try:
-        response = session.get(url)
-        return response.json()
-    except Exception:
-        raise requests.RequestException("Failed to contact e-cyano API.")
-
