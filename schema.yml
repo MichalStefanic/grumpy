@@ -1,47 +1,89 @@
 swagger: "2.0"
 info:
   title: Grumpy API
-  description: An API for automatically generation of SBGN images for BCSL rules and SBML reactions.
+  description: An API for generation of SBGN images for BCSL rules and SBML reactions.
   version: "1.0.0"
 basePath: /api
 schemes:
   - https
 consumes:
   - application/json
-produces:
-  - application/json
 
 paths:
-  /rules:
-    post:
-      operationId: "handlers.get_rule"
-      summary: Get the rule image
-      produces:
-        - application/json
-      parameters:
-      - name: rule
-        in: body
-        required: true
-        schema:
-          type: string
-          example: ps2(chl{*}|p680{n}|pheo{n})::tlm <=> ps2(chl{n}|p680{+}|pheo{-})::tlm
+  /ping:
+    get:
+      operationId: "handlers.pong"
+      summary: Return a simple JSON payload for health check purposes
       responses:
-        '200':
-          description: SVG image of rule in SBGN.
+        "200":
+          description: Health check successful
+          schema:
+            title: Pong
+            required:
+              - pong
+            properties:
+              pong:
+                type: boolean
+                description: Always set to true to signify that the ping has been ponged successfully.
 
-  /reactions:
+  /rule:
     post:
-      operationId: "handlers.get_reaction"
-      summary: Get the reaction image
+      summary: Get the rule image
+      operationId: "handlers.get_rule"
       produces:
-        - application/xml
+        - image/svg
+        - image/png
       parameters:
-      - name: reaction
-        in: body
-        required: true
-        schema:
-          type: string
-          example: ps2(chl{*}|p680{n}|pheo{n})::tlm <=> ps2(chl{n}|p680{+}|pheo{-})::tlm
+        - name: data
+          in: body
+          schema:
+            title: Body parameters
+            type: object
+            properties:
+              rule:
+                type: string
+                example: ps2(chl{*}|p680{n}|pheo{n})::tlm => ps2(chl{n}|p680{+}|pheo{-})::tlm
+              as_svg:
+                type: boolean
+                example: false
+            required:
+              - rule
+              - as_svg
       responses:
         '200':
-          description: SVG image of reaction in SBGN.
+          description: Svg or png image of rule in SBGN.
+          schema:
+            type: file
+
+  /reaction:
+    post:
+      summary: Get the reaction image
+      operationId: "handlers.get_reaction"
+      produces:
+        - image/svg
+        - image/png
+      parameters:
+        - name: data
+          in: body
+          schema:
+            title: Body parameters
+            type: object
+            properties:
+              model_id:
+                type: number
+                example: 13
+              reaction_id:
+                type: number
+                example: 219
+              as_svg:
+                type: boolean
+                example: false
+            required:
+              - model_id
+              - reaction_id
+              - as_svg
+      responses:
+        '200':
+          description: Svg or png image of reaction in SBGN.
+          schema:
+            type: file

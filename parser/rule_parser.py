@@ -8,7 +8,7 @@ sys.path.append("{}/BCSLruleParser/bin/lib/python".format(os.getcwd()))
 try:
     import RuleParserPy
 except Exception:
-    raise ImportError("Invalid import path.")
+    raise ImportError("Invalid import path for RuleParserPy library.")
 
 
 def parse_rule(rule):
@@ -18,15 +18,13 @@ def parse_rule(rule):
     :param rule: SBGN rule in string representation
     :return: dict: Parsed rule in tree structured
     """
-    # parser return error if `|` occur in rule, because he expected `,`
+    # parser return error if `|` occur in rule, because `,` was expected
     rule = rule.replace("|", ",")
-    try:
-        raw_response = RuleParserPy.parseEquations(rule)
-        parsed_rule = json.loads(raw_response)  # convert from string to dictionary
 
-        if parsed_rule.get("error"):
-            raise IOError("Not a valid rule tree.")
+    raw_response = RuleParserPy.parseEquations(rule)
+    parsed_rule = json.loads(raw_response)  # convert from string to dictionary
 
-        return parsed_rule
-    except Exception:
-        raise Exception("Rule parsing failed.")
+    if parsed_rule.get("error"):
+        raise IOError("Not a valid rule tree.")
+
+    return parsed_rule
