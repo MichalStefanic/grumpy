@@ -5,6 +5,7 @@ info:
   version: "1.0.0"
 basePath: /api
 schemes:
+  - http
   - https
 consumes:
   - application/json
