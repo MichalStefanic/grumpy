@@ -15,7 +15,7 @@ lxml==4.4.1
 MarkupSafe==1.1.1
 numpy==1.17.3
 openapi-spec-validator==0.2.8
-Pillow==6.2.1
+Pillow==9.0.1
 PyYAML==5.1.2
 requests==2.22.0
 six==1.12.0
